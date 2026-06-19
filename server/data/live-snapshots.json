@@ -1,0 +1,15 @@
+{
+  "version": "0.2.13",
+  "reportingDate": "2026-06-19",
+  "updatedAt": null,
+  "reportingPOS": {},
+  "uberEats": {},
+  "square": {},
+  "connectorStatus": {},
+  "syncRuns": [],
+  "captures": [],
+  "whatsapp": { "summaries": [], "actions": [] },
+  "ticketRowsByStore": {},
+  "posTicketWatermarks": {},
+  "productionShapeMap": []
+}
