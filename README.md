@@ -1,6 +1,11 @@
-# Freda Ops Cockpit - Beta 0.2.13
+# Freda Ops Cockpit - Beta 0.2.13 Sync Hotfix
 
 Lean Phase 1 prototype for the L.A. Donuts / Frieda's Pies AI Operations Assistant.
+
+## What changed in 0.2.13 sync hotfix
+- Removed `server/package-lock.json` so Render can install fresh public dependencies.
+- Reporting cookie handling now tolerates a PHPSESSID accidentally pasted into `REPORTING_COOKIE`.
+- POS page parser now reads date inputs/hidden form fields as selected-date evidence, not just visible body text.
 
 ## What changed in 0.2.13
 
