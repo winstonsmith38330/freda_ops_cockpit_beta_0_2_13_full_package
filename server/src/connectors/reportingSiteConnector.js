@@ -157,7 +157,8 @@ async function fetchViewWithDate(env, fetchImpl, store, view, selectedDate, cook
     const parsed = parseDashboardPage(response.text, { sourcePage: view });
     const accepted = periodMatchesSelectedDate(parsed.period, selectedDate);
     const hasData = Boolean(parsed.metrics?.sales != null || parsed.metrics?.orders != null || parsed.hourlyRows?.length || parsed.productRows?.length);
-    detail.periodChecks.push({ view, url: cleanUrl, status: response.status, finalUrl: scrubUrl(response.finalUrl || url), period: parsed.period, accepted, hasData });
+    const periodSource = parsed.textPeriod?.start ? 'page-text' : parsed.inputPeriod?.start ? 'date-inputs' : 'none';
+    detail.periodChecks.push({ view, url: cleanUrl, status: response.status, finalUrl: scrubUrl(response.finalUrl || url), period: parsed.period, periodSource, accepted, hasData });
     if (response.looksUnauthenticated) throw new Error('Authentication failed or login page returned. Refresh REPORTING_COOKIE / REPORTING_PHPSESSID.');
     if (accepted && hasData) return { sourcePage: view, url: cleanUrl, parsed, accepted: true };
   }
@@ -280,8 +281,15 @@ function buildCookieHeader(env) {
   const raw = String(env.REPORTING_COOKIE || '').trim();
   const sid = String(env.REPORTING_PHPSESSID || '').trim();
   const parts = [];
-  if (raw) parts.push(raw);
-  if (sid && !/PHPSESSID=/i.test(raw)) parts.push(`PHPSESSID=${sid}`);
+
+  // REPORTING_COOKIE should usually be the full raw Cookie header.
+  // If the user accidentally pastes only the 32-char PHPSESSID into REPORTING_COOKIE,
+  // turn it into a valid cookie instead of sending a valueless cookie fragment.
+  if (raw) {
+    if (raw.includes('=')) parts.push(raw);
+    else parts.push(`PHPSESSID=${raw}`);
+  }
+  if (sid && !parts.some(p => /PHPSESSID=/i.test(p))) parts.push(`PHPSESSID=${sid}`);
   return parts.filter(Boolean).join('; ');
 }
 

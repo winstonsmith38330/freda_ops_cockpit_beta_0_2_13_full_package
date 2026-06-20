@@ -1,6 +1,6 @@
 import * as cheerio from 'cheerio';
 import { cleanText, moneyToNumber, numberOrNull, round2 } from './safe.js';
-import { extractPeriodFromText, hourFromTimestamp, parseDisplayDate } from './dateUtils.js';
+import { extractPeriodFromText, extractDatesFromText, hourFromTimestamp, parseDisplayDate } from './dateUtils.js';
 
 const SALES_LABELS = ['sales', 'ventes', 'revenue', 'turnover', 'total sales', 'net sales', 'total encaissé', 'ventes nettes'];
 const ORDER_LABELS = ['orders', 'commandes', 'tickets', 'transactions', 'receipts', 'transactions finalisées'];
@@ -53,19 +53,23 @@ export function parseDashboardPage(html = '', context = {}) {
   const { title, text, tables, inputs } = htmlToTextAndTables(html);
   const metrics = parseKpisFromText(text);
   const period = extractPeriodFromText(text);
+  const inputPeriod = extractPeriodFromInputs(inputs);
+  const finalPeriod = period.start ? period : inputPeriod;
   const tableRows = parseGenericTables(tables);
   const hourlyRows = [...parseHourlyFromTables(tables), ...parseHourlyFromText(text)];
   const productRows = parseProductsFromTables(tables);
   return {
     ok: Boolean(metrics.sales != null || metrics.orders != null || hourlyRows.length || productRows.length || tableRows.length),
     title,
-    period,
+    period: finalPeriod,
+    textPeriod: period,
+    inputPeriod,
     metrics,
     hourlyRows: mergeHourly(hourlyRows),
     productRows,
     tableRows,
     inputs,
-    warnings: period.start ? [] : ['No exact period/date text found in page. Values will not be accepted for Today unless another page confirms the date.'],
+    warnings: finalPeriod.start ? [] : ['No exact period/date text found in page text or date inputs. Values will not be accepted for Today unless another page confirms the date.'],
     sourcePage: context.sourcePage || ''
   };
 }
@@ -83,6 +87,29 @@ export function parseUberUiText(text = '') {
   const metrics = parseKpisFromText(source);
   const hourlyRows = parseHourlyFromText(source);
   return { period, metrics, hourlyRows };
+}
+
+
+function extractPeriodFromInputs(inputs = []) {
+  const values = [];
+  for (const input of inputs || []) {
+    const name = `${input.name || ''} ${input.id || ''} ${input.type || ''}`.toLowerCase();
+    const value = String(input.value || '').trim();
+    if (!value) continue;
+    if (/date|from|to|start|end|range|day|report/.test(name) || parseDisplayDate(value)) {
+      values.push(value);
+    }
+  }
+  const dates = [];
+  for (const value of values) {
+    const direct = parseDisplayDate(value);
+    if (direct) dates.push(direct);
+    for (const d of extractDatesFromText(value)) dates.push(d);
+  }
+  const uniq = [...new Set(dates)].filter(Boolean);
+  if (uniq.length === 1) return { start: uniq[0], end: uniq[0], label: values.join(' | ') };
+  if (uniq.length >= 2) return { start: uniq[0], end: uniq[uniq.length - 1], label: values.join(' | ') };
+  return { start: '', end: '', label: '' };
 }
 
 function parseGenericTables(tables = []) {
